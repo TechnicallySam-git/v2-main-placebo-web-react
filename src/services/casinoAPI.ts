@@ -1,5 +1,5 @@
 // API service for casino operations
-const API_BASE_URL = (import.meta as any).env.DEV ? 'https://15k56cprl1.execute-api.eu-north-1.amazonaws.com/prod/api' : '/api/';
+const API_BASE_URL = 'https://15k56cprl1.execute-api.eu-north-1.amazonaws.com/prod/api';
 // Token management
 const TOKEN_KEY = 'placebo-casino-jwt-token';
 

@@ -1,0 +1,378 @@
+import { useState, useEffect } from 'react';
+import { Button } from './ui/button';
+import { Card } from './ui/card';
+import { useCasino } from './casino-context';
+import { ArrowLeft, Coins } from 'lucide-react';
+import { AmbientStarWaveBackground } from './ambient-star-wave-background';
+
+type Suit = '♠' | '♥' | '♦' | '♣';
+type Rank = 'A' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | 'J' | 'Q' | 'K';
+
+interface PlayingCard {
+  suit: Suit;
+  rank: Rank;
+}
+
+interface BlackjackGameProps {
+  onBack: () => void;
+}
+
+export function BlackjackGame({ onBack }: BlackjackGameProps) {
+  const { user, updatePoints, addGameHistory } = useCasino();
+  const [deck, setDeck] = useState<PlayingCard[]>([]);
+  const [playerHand, setPlayerHand] = useState<PlayingCard[]>([]);
+  const [dealerHand, setDealerHand] = useState<PlayingCard[]>([]);
+  const [bet, setBet] = useState(10);
+  const [gameState, setGameState] = useState<'betting' | 'playing' | 'dealer' | 'ended'>('betting');
+  const [result, setResult] = useState<string>('');
+  const [showDealerCard, setShowDealerCard] = useState(false);
+
+  const suits: Suit[] = ['♠', '♥', '♦', '♣'];
+  const ranks: Rank[] = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+
+  const createDeck = (): PlayingCard[] => {
+    const newDeck: PlayingCard[] = [];
+    for (const suit of suits) {
+      for (const rank of ranks) {
+        newDeck.push({ suit, rank });
+      }
+    }
+    return shuffleDeck(newDeck);
+  };
+
+  const shuffleDeck = (deck: PlayingCard[]): PlayingCard[] => {
+    const shuffled = [...deck];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  };
+
+  const getCardValue = (card: PlayingCard, currentTotal: number): number => {
+    if (card.rank === 'A') {
+      return currentTotal + 11 > 21 ? 1 : 11;
+    } else if (['J', 'Q', 'K'].includes(card.rank)) {
+      return 10;
+    }
+    return parseInt(card.rank);
+  };
+
+  const calculateHandValue = (hand: PlayingCard[]): number => {
+    let total = 0;
+    let aces = 0;
+
+    for (const card of hand) {
+      if (card.rank === 'A') {
+        aces++;
+        total += 11;
+      } else if (['J', 'Q', 'K'].includes(card.rank)) {
+        total += 10;
+      } else {
+        total += parseInt(card.rank);
+      }
+    }
+
+    while (total > 21 && aces > 0) {
+      total -= 10;
+      aces--;
+    }
+
+    return total;
+  };
+
+  const dealInitialCards = () => {
+    if (bet > user.points) {
+      alert('Insufficient points!');
+      return;
+    }
+
+    const newDeck = createDeck();
+    const player = [newDeck[0], newDeck[2]];
+    const dealer = [newDeck[1], newDeck[3]];
+    
+    setDeck(newDeck.slice(4));
+    setPlayerHand(player);
+    setDealerHand(dealer);
+    setGameState('playing');
+    setResult('');
+    setShowDealerCard(false);
+    updatePoints(-bet);
+
+    // Check for natural blackjack
+    const playerValue = calculateHandValue(player);
+    if (playerValue === 21) {
+      setShowDealerCard(true);
+      const dealerValue = calculateHandValue(dealer);
+      if (dealerValue === 21) {
+        endGame('push', 0);
+      } else {
+        endGame('win', bet * 2.5);
+      }
+    }
+  };
+
+  const hit = () => {
+    if (deck.length === 0) return;
+
+    const newCard = deck[0];
+    const newPlayerHand = [...playerHand, newCard];
+    setPlayerHand(newPlayerHand);
+    setDeck(deck.slice(1));
+
+    const playerValue = calculateHandValue(newPlayerHand);
+    if (playerValue > 21) {
+      setShowDealerCard(true);
+      endGame('loss', 0);
+    } else if (playerValue === 21) {
+      stand();
+    }
+  };
+
+  const stand = () => {
+    setShowDealerCard(true);
+    setGameState('dealer');
+    dealerPlay();
+  };
+
+  const dealerPlay = () => {
+    let currentDealerHand = [...dealerHand];
+    let currentDeck = [...deck];
+
+    while (calculateHandValue(currentDealerHand) < 17) {
+      if (currentDeck.length === 0) break;
+      currentDealerHand.push(currentDeck[0]);
+      currentDeck = currentDeck.slice(1);
+    }
+
+    setDealerHand(currentDealerHand);
+    setDeck(currentDeck);
+
+    const playerValue = calculateHandValue(playerHand);
+    const dealerValue = calculateHandValue(currentDealerHand);
+
+    if (dealerValue > 21) {
+      endGame('win', bet * 2);
+    } else if (dealerValue > playerValue) {
+      endGame('loss', 0);
+    } else if (dealerValue < playerValue) {
+      endGame('win', bet * 2);
+    } else {
+      endGame('push', 0);
+    }
+  };
+
+  const endGame = (outcome: 'win' | 'loss' | 'push', payout: number) => {
+    setGameState('ended');
+    
+    if (outcome === 'win') {
+      setResult(`You Win! +${payout} points`);
+      updatePoints(payout);
+      addGameHistory({
+        gameName: 'Blackjack',
+        result: 'win',
+        pointsChange: payout - bet,
+      });
+    } else if (outcome === 'loss') {
+      setResult('Dealer Wins!');
+      addGameHistory({
+        gameName: 'Blackjack',
+        result: 'loss',
+        pointsChange: -bet,
+      });
+    } else {
+      setResult('Push! Bet Returned');
+      updatePoints(bet);
+      addGameHistory({
+        gameName: 'Blackjack',
+        result: 'push',
+        pointsChange: 0,
+      });
+    }
+  };
+
+  const newRound = () => {
+    setGameState('betting');
+    setPlayerHand([]);
+    setDealerHand([]);
+    setResult('');
+    setShowDealerCard(false);
+  };
+
+  const PlayingCardComponent = ({ card, hidden = false }: { card: PlayingCard; hidden?: boolean }) => {
+    const isRed = card.suit === '♥' || card.suit === '♦';
+    
+    if (hidden) {
+      return (
+        <div className="w-20 h-28 bg-gradient-to-br from-[#6b46ff] to-[#ff2b9e] rounded-lg flex items-center justify-center border-2 border-white/20">
+          <div className="text-white text-4xl">?</div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="w-20 h-28 bg-white rounded-lg flex flex-col items-center justify-between p-2 border-2 border-gray-300 shadow-lg">
+        <div className={`text-2xl ${isRed ? 'text-red-600' : 'text-black'}`}>
+          {card.rank}
+        </div>
+        <div className={`text-3xl ${isRed ? 'text-red-600' : 'text-black'}`}>
+          {card.suit}
+        </div>
+        <div className={`text-2xl ${isRed ? 'text-red-600' : 'text-black'}`}>
+          {card.rank}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="relative min-h-screen">
+      {/* Ambient Star Wave Background */}
+      <AmbientStarWaveBackground />
+      
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-h-screen" style={{ zIndex: 2 }}>
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <Button
+            onClick={onBack}
+            variant="outline"
+            className="border-[#6b46ff]/30 hover:border-[#6b46ff]"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Lobby
+          </Button>
+          
+          <div className="flex items-center gap-4">
+            <Card className="bg-card border-[#6b46ff]/30 px-4 py-2">
+              <div className="flex items-center gap-2">
+                <Coins className="w-5 h-5 text-[#00ff88]" />
+                <span className="text-white">{user.points} pts</span>
+              </div>
+            </Card>
+          </div>
+        </div>
+
+        {/* Game Area */}
+        <Card className="bg-gradient-to-br from-[#1a0f2e] to-[#2a1f4b] border-[#6b46ff]/30 p-8">
+          {/* Dealer Hand */}
+          <div className="mb-12">
+            <h3 className="text-white mb-4">
+              Dealer's Hand {showDealerCard && `(${calculateHandValue(dealerHand)})`}
+            </h3>
+            <div className="flex gap-3 flex-wrap">
+              {dealerHand.map((card, idx) => (
+                <PlayingCardComponent
+                  key={idx}
+                  card={card}
+                  hidden={idx === 1 && !showDealerCard}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Player Hand */}
+          <div className="mb-8">
+            <h3 className="text-white mb-4">
+              Your Hand {playerHand.length > 0 && `(${calculateHandValue(playerHand)})`}
+            </h3>
+            <div className="flex gap-3 flex-wrap">
+              {playerHand.map((card, idx) => (
+                <PlayingCardComponent key={idx} card={card} />
+              ))}
+            </div>
+          </div>
+
+          {/* Result Message */}
+          {result && (
+            <div className={`text-center mb-6 p-4 rounded-lg ${
+              result.includes('Win') ? 'bg-[#00ff88]/20 text-[#00ff88]' : 
+              result.includes('Push') ? 'bg-[#00d9ff]/20 text-[#00d9ff]' : 
+              'bg-[#ff2b9e]/20 text-[#ff2b9e]'
+            }`}>
+              <p className="text-2xl">{result}</p>
+            </div>
+          )}
+
+          {/* Betting Controls */}
+          {gameState === 'betting' && (
+            <div className="space-y-6">
+              <div>
+                <label className="text-white block mb-3">Place Your Bet:</label>
+                <div className="flex gap-2 flex-wrap mb-3">
+                  {[10, 25, 50, 100, 250].map((amount) => (
+                    <button
+                      key={amount}
+                      onClick={() => setBet(amount)}
+                      disabled={amount > user.points}
+                      className={`
+                        relative h-12 px-5 rounded-full transition-all duration-200
+                        ${bet === amount 
+                          ? 'bg-gradient-to-br from-[#6b46ff] to-[#ff2b9e] text-white shadow-lg shadow-[#6b46ff]/50 scale-105' 
+                          : 'bg-[#2a1f4b] text-gray-300 border-2 border-[#6b46ff]/30 hover:border-[#6b46ff] hover:bg-[#2a1f4b]/80'
+                        }
+                        ${amount > user.points ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}
+                        font-medium
+                      `}
+                    >
+                      {amount}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-gray-400 text-sm">Selected bet: <span className="text-[#00ff88]">{bet} points</span></p>
+              </div>
+              
+              <Button
+                onClick={dealInitialCards}
+                disabled={bet > user.points}
+                className="w-full h-14 bg-gradient-to-r from-[#6b46ff] to-[#ff2b9e] hover:from-[#5a38e6] hover:to-[#e6278f] text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
+              >
+                Deal Cards
+              </Button>
+            </div>
+          )}
+
+          {/* Game Controls */}
+          {gameState === 'playing' && (
+            <div className="flex gap-4">
+              <Button
+                onClick={hit}
+                className="flex-1 h-14 bg-[#6b46ff] hover:bg-[#5a38e6] text-white transition-all hover:-translate-y-0.5"
+              >
+                Hit
+              </Button>
+              <Button
+                onClick={stand}
+                className="flex-1 h-14 bg-[#ff2b9e] hover:bg-[#e6278f] text-white transition-all hover:-translate-y-0.5"
+              >
+                Stand
+              </Button>
+            </div>
+          )}
+
+          {/* New Round Button */}
+          {gameState === 'ended' && (
+            <Button
+              onClick={newRound}
+              className="w-full h-14 bg-gradient-to-r from-[#6b46ff] to-[#ff2b9e] hover:from-[#5a38e6] hover:to-[#e6278f] text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
+            >
+              New Round
+            </Button>
+          )}
+        </Card>
+
+        {/* Game Info */}
+        <Card className="bg-card border-[#6b46ff]/30 p-6 mt-8">
+          <h3 className="text-white mb-3">How to Play Blackjack</h3>
+          <ul className="text-gray-400 text-sm space-y-2">
+            <li>• Goal: Get as close to 21 as possible without going over</li>
+            <li>• Face cards (J, Q, K) are worth 10 points</li>
+            <li>• Aces can be worth 1 or 11 points</li>
+            <li>• Hit: Take another card</li>
+            <li>• Stand: Keep your current hand</li>
+            <li>• Dealer must hit on 16 or less, stand on 17 or more</li>
+          </ul>
+        </Card>
+      </div>
+    </div>
+  );
+}

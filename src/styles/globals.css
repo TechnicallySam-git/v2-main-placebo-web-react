@@ -1,0 +1,559 @@
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --font-size: 16px;
+  --background: #0a0118;
+  --foreground: oklch(0.985 0 0);
+  --card: #1a0f2e;
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.145 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: #6b46ff;
+  --primary-foreground: oklch(1 0 0);
+  --secondary: #2a1f4b;
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: #ff2b9e;
+  --accent-foreground: oklch(1 0 0);
+  --destructive: #d4183d;
+  --destructive-foreground: #ffffff;
+  --border: rgba(107, 70, 255, 0.2);
+  --input: transparent;
+  --input-background: #1a0f2e;
+  --switch-background: #2a1f4b;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --ring: #6b46ff;
+  --chart-1: #6b46ff;
+  --chart-2: #ff2b9e;
+  --chart-3: #00d9ff;
+  --chart-4: #ff6b35;
+  --chart-5: #00ff88;
+  --radius: 1rem;
+  --sidebar: #1a0f2e;
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: #6b46ff;
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: #2a1f4b;
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: rgba(107, 70, 255, 0.2);
+  --sidebar-ring: #6b46ff;
+  
+  /* Casino-specific colors */
+  --casino-purple: #6b46ff;
+  --casino-pink: #ff2b9e;
+  --casino-cyan: #00d9ff;
+  --casino-orange: #ff6b35;
+  --casino-green: #00ff88;
+  --casino-dark: #0a0118;
+  --casino-card: #1a0f2e;
+  --casino-card-hover: #2a1f4b;
+}
+
+.dark {
+  --background: #0a0118;
+  --foreground: oklch(0.985 0 0);
+  --card: #1a0f2e;
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.145 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: #6b46ff;
+  --primary-foreground: oklch(1 0 0);
+  --secondary: #2a1f4b;
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: #ff2b9e;
+  --accent-foreground: oklch(1 0 0);
+  --destructive: oklch(0.396 0.141 25.723);
+  --destructive-foreground: oklch(0.637 0.237 25.331);
+  --border: rgba(107, 70, 255, 0.2);
+  --input: #1a0f2e;
+  --ring: #6b46ff;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --chart-1: #6b46ff;
+  --chart-2: #ff2b9e;
+  --chart-3: #00d9ff;
+  --chart-4: #ff6b35;
+  --chart-5: #00ff88;
+  --sidebar: #1a0f2e;
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: #6b46ff;
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: #2a1f4b;
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: rgba(107, 70, 255, 0.2);
+  --sidebar-ring: #6b46ff;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-switch-background: var(--switch-background);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/**
+ * Base typography. This is not applied to elements which have an ancestor with a Tailwind text class.
+ */
+@layer base {
+  :where(:not(:has([class*=' text-']), :not(:has([class^='text-'])))) {
+    h1 {
+      font-size: var(--text-2xl);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    h2 {
+      font-size: var(--text-xl);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    h3 {
+      font-size: var(--text-lg);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    h4 {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    label {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    button {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    input {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-normal);
+      line-height: 1.5;
+    }
+  }
+}
+
+html {
+  font-size: var(--font-size);
+}
+
+/* Casino-specific animations */
+@keyframes neon-pulse {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(107, 70, 255, 0.5), 0 0 40px rgba(107, 70, 255, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(107, 70, 255, 0.8), 0 0 60px rgba(107, 70, 255, 0.5);
+  }
+}
+
+.neon-pulse {
+  animation: neon-pulse 2s ease-in-out infinite;
+}
+
+/* Ambient glow animation for hero bonus banner */
+@keyframes ambient-glow {
+  0%, 100% {
+    box-shadow: 0 0 25px rgba(107, 70, 255, 0.4), 0 0 50px rgba(255, 43, 158, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(107, 70, 255, 0.6), 0 0 80px rgba(255, 43, 158, 0.5);
+  }
+}
+
+.ambient-glow {
+  animation: ambient-glow 3.5s ease-in-out infinite;
+}
+
+/* Button hover lift effect */
+@keyframes button-lift {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-2px);
+  }
+}
+
+/* Gradient shimmer effect */
+@keyframes gradient-shimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.gradient-shimmer {
+  background-size: 200% 200%;
+  animation: gradient-shimmer 3s ease infinite;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .neon-pulse,
+  .ambient-glow {
+    animation: none;
+    box-shadow: 0 0 20px rgba(107, 70, 255, 0.5), 0 0 40px rgba(107, 70, 255, 0.3);
+  }
+  
+  .gradient-shimmer {
+    animation: none;
+  }
+  
+  .starfall-container {
+    display: none;
+  }
+}
+
+/* Starfall Animation - Waterfall casino ambient effect */
+@keyframes starfall {
+  0% {
+    transform: translateY(-20px) translateX(0) rotate(0deg);
+    opacity: 0;
+  }
+  5% {
+    opacity: 0.5;
+  }
+  25% {
+    transform: translateY(25vh) translateX(15vw) rotate(45deg);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translateY(50vh) translateX(30vw) rotate(90deg);
+    opacity: 0.4;
+  }
+  75% {
+    transform: translateY(75vh) translateX(45vw) rotate(135deg);
+    opacity: 0.4;
+  }
+  95% {
+    opacity: 0.3;
+  }
+  100% {
+    transform: translateY(100vh) translateX(60vw) rotate(180deg);
+    opacity: 0;
+  }
+}
+
+@keyframes starfall-left {
+  0% {
+    transform: translateY(-20px) translateX(0) rotate(0deg);
+    opacity: 0;
+  }
+  5% {
+    opacity: 0.5;
+  }
+  25% {
+    transform: translateY(25vh) translateX(-15vw) rotate(-45deg);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translateY(50vh) translateX(-30vw) rotate(-90deg);
+    opacity: 0.4;
+  }
+  75% {
+    transform: translateY(75vh) translateX(-45vw) rotate(-135deg);
+    opacity: 0.4;
+  }
+  95% {
+    opacity: 0.3;
+  }
+  100% {
+    transform: translateY(100vh) translateX(-60vw) rotate(-180deg);
+    opacity: 0;
+  }
+}
+
+@keyframes starwave-across {
+  0% {
+    transform: translateY(-20px) translateX(-30vw) rotate(0deg);
+    opacity: 0;
+  }
+  5% {
+    opacity: 0.5;
+  }
+  25% {
+    transform: translateY(25vh) translateX(-10vw) rotate(60deg);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translateY(50vh) translateX(15vw) rotate(120deg);
+    opacity: 0.45;
+  }
+  75% {
+    transform: translateY(75vh) translateX(35vw) rotate(180deg);
+    opacity: 0.4;
+  }
+  95% {
+    opacity: 0.3;
+  }
+  100% {
+    transform: translateY(100vh) translateX(50vw) rotate(240deg);
+    opacity: 0;
+  }
+}
+
+@keyframes starwave-reverse {
+  0% {
+    transform: translateY(-20px) translateX(30vw) rotate(0deg);
+    opacity: 0;
+  }
+  5% {
+    opacity: 0.5;
+  }
+  25% {
+    transform: translateY(25vh) translateX(10vw) rotate(-60deg);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translateY(50vh) translateX(-15vw) rotate(-120deg);
+    opacity: 0.45;
+  }
+  75% {
+    transform: translateY(75vh) translateX(-35vw) rotate(-180deg);
+    opacity: 0.4;
+  }
+  95% {
+    opacity: 0.3;
+  }
+  100% {
+    transform: translateY(100vh) translateX(-50vw) rotate(-240deg);
+    opacity: 0;
+  }
+}
+
+.starfall-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Wave container - left to right */
+.starwave-across-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* Wave container - right to left */
+.starwave-reverse-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* Left waterfall stream */
+.starfall-left {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 150px;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* Right waterfall stream */
+.starfall-right {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 150px;
+  height: 100%;
+  pointer-events: none;
+}
+
+.star {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  background: radial-gradient(circle, rgba(107, 70, 255, 1) 0%, rgba(107, 70, 255, 0.4) 50%, transparent 70%);
+  border-radius: 50%;
+  animation: starfall linear infinite;
+  filter: blur(2px);
+  box-shadow: 0 0 8px rgba(107, 70, 255, 0.9), 0 0 12px rgba(107, 70, 255, 0.6);
+}
+
+/* Medium-sized stars for variety */
+.star.medium {
+  width: 8px;
+  height: 8px;
+  filter: blur(2.5px);
+  box-shadow: 0 0 10px rgba(107, 70, 255, 1), 0 0 16px rgba(107, 70, 255, 0.7);
+}
+
+.star.left-stream {
+  animation: starfall-left linear infinite;
+}
+
+/* Right stream stars with varied positions */
+.starfall-right .star:nth-child(1) { left: 20%; animation-duration: 6s; animation-delay: 0s; }
+.starfall-right .star:nth-child(2) { left: 50%; animation-duration: 7s; animation-delay: 1.5s; }
+.starfall-right .star:nth-child(3) { left: 80%; animation-duration: 6.5s; animation-delay: 3s; }
+.starfall-right .star:nth-child(4) { left: 35%; animation-duration: 7.5s; animation-delay: 0.8s; }
+.starfall-right .star:nth-child(5) { left: 65%; animation-duration: 6.8s; animation-delay: 2.2s; }
+.starfall-right .star:nth-child(6) { left: 10%; animation-duration: 7.2s; animation-delay: 4s; }
+.starfall-right .star:nth-child(7) { left: 90%; animation-duration: 6.3s; animation-delay: 1s; }
+.starfall-right .star:nth-child(8) { left: 45%; animation-duration: 7.8s; animation-delay: 3.5s; }
+.starfall-right .star:nth-child(9) { left: 25%; animation-duration: 6.6s; animation-delay: 2.8s; }
+.starfall-right .star:nth-child(10) { left: 70%; animation-duration: 7.4s; animation-delay: 0.3s; }
+.starfall-right .star:nth-child(11) { left: 55%; animation-duration: 6.4s; animation-delay: 1.8s; }
+.starfall-right .star:nth-child(12) { left: 15%; animation-duration: 7.6s; animation-delay: 4.3s; }
+.starfall-right .star:nth-child(13) { left: 75%; animation-duration: 6.9s; animation-delay: 2.5s; }
+.starfall-right .star:nth-child(14) { left: 40%; animation-duration: 7.1s; animation-delay: 0.6s; }
+
+/* Left stream stars with varied positions */
+.starfall-left .star:nth-child(1) { left: 20%; animation-duration: 6.2s; animation-delay: 0.5s; }
+.starfall-left .star:nth-child(2) { left: 50%; animation-duration: 7.3s; animation-delay: 2s; }
+.starfall-left .star:nth-child(3) { left: 80%; animation-duration: 6.7s; animation-delay: 3.5s; }
+.starfall-left .star:nth-child(4) { left: 35%; animation-duration: 7.6s; animation-delay: 1.2s; }
+.starfall-left .star:nth-child(5) { left: 65%; animation-duration: 6.4s; animation-delay: 2.7s; }
+.starfall-left .star:nth-child(6) { left: 10%; animation-duration: 7.1s; animation-delay: 4.2s; }
+.starfall-left .star:nth-child(7) { left: 90%; animation-duration: 6.9s; animation-delay: 1.4s; }
+.starfall-left .star:nth-child(8) { left: 45%; animation-duration: 7.7s; animation-delay: 3.8s; }
+.starfall-left .star:nth-child(9) { left: 25%; animation-duration: 6.5s; animation-delay: 3.2s; }
+.starfall-left .star:nth-child(10) { left: 70%; animation-duration: 7.9s; animation-delay: 0.7s; }
+.starfall-left .star:nth-child(11) { left: 40%; animation-duration: 6.1s; animation-delay: 2.5s; }
+.starfall-left .star:nth-child(12) { left: 60%; animation-duration: 7.5s; animation-delay: 4.5s; }
+.starfall-left .star:nth-child(13) { left: 15%; animation-duration: 6.8s; animation-delay: 1.9s; }
+.starfall-left .star:nth-child(14) { left: 75%; animation-duration: 7.2s; animation-delay: 3.6s; }
+.starfall-left .star:nth-child(15) { left: 55%; animation-duration: 6.3s; animation-delay: 0.9s; }
+.starfall-left .star:nth-child(16) { left: 30%; animation-duration: 7.4s; animation-delay: 4.8s; }
+
+/* Pink variant stars */
+.star.pink {
+  background: radial-gradient(circle, rgba(255, 43, 158, 1) 0%, rgba(255, 43, 158, 0.5) 50%, transparent 70%);
+  box-shadow: 0 0 8px rgba(255, 43, 158, 0.9), 0 0 12px rgba(255, 43, 158, 0.6);
+}
+
+/* Cyan variant stars */
+.star.cyan {
+  background: radial-gradient(circle, rgba(0, 217, 255, 1) 0%, rgba(0, 217, 255, 0.5) 50%, transparent 70%);
+  box-shadow: 0 0 8px rgba(0, 217, 255, 0.9), 0 0 12px rgba(0, 217, 255, 0.6);
+}
+
+/* Pink medium variant */
+.star.pink.medium {
+  box-shadow: 0 0 10px rgba(255, 43, 158, 1), 0 0 16px rgba(255, 43, 158, 0.7);
+}
+
+/* Cyan medium variant */
+.star.cyan.medium {
+  box-shadow: 0 0 10px rgba(0, 217, 255, 1), 0 0 16px rgba(0, 217, 255, 0.7);
+}
+
+/* Wave-across animation (left to right) */
+.star.wave-across {
+  animation: starwave-across linear infinite;
+}
+
+/* Wave-reverse animation (right to left) */
+.star.wave-reverse {
+  animation: starwave-reverse linear infinite;
+}
+
+/* Wave-across stars with varied timings and delays */
+.starwave-across-container .star:nth-child(1) { animation-duration: 8s; animation-delay: 0s; }
+.starwave-across-container .star:nth-child(2) { animation-duration: 9s; animation-delay: 1.2s; }
+.starwave-across-container .star:nth-child(3) { animation-duration: 7.5s; animation-delay: 2.8s; }
+.starwave-across-container .star:nth-child(4) { animation-duration: 8.5s; animation-delay: 0.6s; }
+.starwave-across-container .star:nth-child(5) { animation-duration: 7.8s; animation-delay: 3.4s; }
+.starwave-across-container .star:nth-child(6) { animation-duration: 9.2s; animation-delay: 1.8s; }
+.starwave-across-container .star:nth-child(7) { animation-duration: 8.3s; animation-delay: 4.2s; }
+.starwave-across-container .star:nth-child(8) { animation-duration: 7.6s; animation-delay: 2.1s; }
+.starwave-across-container .star:nth-child(9) { animation-duration: 8.8s; animation-delay: 0.3s; }
+.starwave-across-container .star:nth-child(10) { animation-duration: 9.5s; animation-delay: 3.9s; }
+.starwave-across-container .star:nth-child(11) { animation-duration: 7.2s; animation-delay: 1.5s; }
+.starwave-across-container .star:nth-child(12) { animation-duration: 8.6s; animation-delay: 4.5s; }
+.starwave-across-container .star:nth-child(13) { animation-duration: 9.3s; animation-delay: 2.3s; }
+.starwave-across-container .star:nth-child(14) { animation-duration: 7.9s; animation-delay: 0.9s; }
+.starwave-across-container .star:nth-child(15) { animation-duration: 8.1s; animation-delay: 3.6s; }
+
+/* Wave-reverse stars with varied timings and delays */
+.starwave-reverse-container .star:nth-child(1) { animation-duration: 8.2s; animation-delay: 0.4s; }
+.starwave-reverse-container .star:nth-child(2) { animation-duration: 9.1s; animation-delay: 2s; }
+.starwave-reverse-container .star:nth-child(3) { animation-duration: 7.7s; animation-delay: 3.2s; }
+.starwave-reverse-container .star:nth-child(4) { animation-duration: 8.4s; animation-delay: 1.1s; }
+.starwave-reverse-container .star:nth-child(5) { animation-duration: 9.4s; animation-delay: 4s; }
+.starwave-reverse-container .star:nth-child(6) { animation-duration: 7.3s; animation-delay: 2.6s; }
+.starwave-reverse-container .star:nth-child(7) { animation-duration: 8.9s; animation-delay: 0.7s; }
+.starwave-reverse-container .star:nth-child(8) { animation-duration: 9.6s; animation-delay: 3.5s; }
+.starwave-reverse-container .star:nth-child(9) { animation-duration: 7.4s; animation-delay: 1.3s; }
+.starwave-reverse-container .star:nth-child(10) { animation-duration: 8.7s; animation-delay: 4.7s; }
+.starwave-reverse-container .star:nth-child(11) { animation-duration: 9.8s; animation-delay: 2.4s; }
+.starwave-reverse-container .star:nth-child(12) { animation-duration: 7.1s; animation-delay: 0.2s; }
+.starwave-reverse-container .star:nth-child(13) { animation-duration: 8.5s; animation-delay: 3.8s; }
+.starwave-reverse-container .star:nth-child(14) { animation-duration: 9.7s; animation-delay: 1.6s; }
+.starwave-reverse-container .star:nth-child(15) { animation-duration: 7.5s; animation-delay: 4.1s; }

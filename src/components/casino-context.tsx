@@ -99,9 +99,9 @@ export function CasinoProvider({ children }: { children: React.ReactNode }) {
         }
         return;
       }
-    } catch (error) {
-      console.log('Backend unavailable, using localStorage:', error);
-      throw error;
+    } catch (error: any) {
+      console.log('Backend login failed:', error);
+      throw new Error(error.message || 'Login failed');
     }
 
     // Fallback to localStorage

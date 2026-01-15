@@ -3,6 +3,8 @@ from flask_cors import CORS
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from werkzeug.security import generate_password_hash, check_password_hash  # noqa: F401 (kept for compatibility if referenced elsewhere)
 import os
+import base64
+import json
 from datetime import datetime, timedelta
 from uuid import UUID
 from dotenv import load_dotenv
@@ -26,15 +28,37 @@ CORS(app, origins=['*'], supports_credentials=True)
 
 # Supabase Configuration
 SUPABASE_URL = os.getenv('SUPABASE_URL')
-# Prefer service role key for server-side operations; fall back to regular key if present.
+# Prefer explicit service role env var, but SUPABASE_KEY may itself be a legacy service_role JWT
 SUPABASE_SERVICE_ROLE_KEY = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
-SUPABASE_KEY = SUPABASE_SERVICE_ROLE_KEY or os.getenv('SUPABASE_KEY')  # choose service key first
-IS_SERVICE_ROLE = bool(SUPABASE_SERVICE_ROLE_KEY)
+_env_supabase_key = os.getenv('SUPABASE_KEY')
+SUPABASE_KEY = SUPABASE_SERVICE_ROLE_KEY or _env_supabase_key  # prefer explicit service role var, else fallback
+
+def _is_service_role_key(key: str | None) -> bool:
+    """Return True if the given SUPABASE key appears to be a service_role JWT."""
+    if not key:
+        return False
+    try:
+        parts = key.split('.')
+        if len(parts) < 2:
+            return False
+        payload = parts[1]
+        padding = '=' * (-len(payload) % 4)
+        decoded = base64.urlsafe_b64decode(payload + padding)
+        obj = json.loads(decoded)
+        role = obj.get('role') or ''
+        return 'service_role' in str(role)
+    except Exception:
+        return False
+
+# Treat SUPABASE_KEY as service role when explicit var present or JWT payload indicates service_role
+IS_SERVICE_ROLE = bool(SUPABASE_SERVICE_ROLE_KEY) or _is_service_role_key(SUPABASE_KEY)
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     print("WARNING: SUPABASE_URL and SUPABASE_KEY (or SUPABASE_SERVICE_ROLE_KEY) must be set in environment variables")
+else:
+    print(f"SUPABASE_KEY present. Detected service_role: {IS_SERVICE_ROLE}")
 
-# create supabase client (service key if available)
+# create supabase client (use SUPABASE_KEY which may be service role)
 try:
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY else None
 except Exception as e:
@@ -43,17 +67,28 @@ except Exception as e:
 
 # helper to surface supabase responses
 def _resp_error(resp):
-    """Return error message if supabase response indicates an error."""
+    """Return error message if supabase response indicates an error and map permission errors to a helpful hint."""
     try:
         # supabase-py may return object with .error or dict with 'error'
+        msg = None
         err = getattr(resp, "error", None)
         if err:
-            return str(err)
-        if isinstance(resp, dict) and resp.get("error"):
-            return str(resp.get("error"))
+            msg = str(err)
+        elif isinstance(resp, dict) and resp.get("error"):
+            msg = str(resp.get("error"))
+        # some supabase-py responses set .status_code/.status_text or include .data with error info
+        elif hasattr(resp, "status_code") and getattr(resp, "status_code") >= 400:
+            msg = getattr(resp, "status_text", "") or str(resp)
+        else:
+            return None
+
+        lower = (msg or "").lower()
+        if "permission denied" in lower or "42501" in lower or "service_role" in lower:
+            # Make the hint explicit so frontend/devs know what to fix
+            return "Database permission denied: this operation requires the Supabase service role key (SUPABASE_SERVICE_ROLE_KEY) or appropriate RLS policies. Set SUPABASE_SERVICE_ROLE_KEY in the server environment or adjust RLS to allow the authenticated role to perform the write."
+        return msg
     except Exception:
-        pass
-    return None
+        return None
 
 # Helper: normalize Supabase auth responses (object or dict shapes)
 def _extract_user_id_from_auth_response(resp):
@@ -452,9 +487,9 @@ def update_points(user_id):
     if current_user != user_id:
         return create_error_response("Unauthorized", 401)
 
-    # Require service role key for writes
-    if not supabase or not IS_SERVICE_ROLE:
-        return create_error_response("Server misconfiguration: SUPABASE_SERVICE_ROLE_KEY missing or DB not configured", 503)
+    # Ensure supabase client exists; don't preemptively require service role so we can surface DB errors
+    if not supabase:
+        return create_error_response("Server misconfiguration: SUPABASE_URL and SUPABASE_KEY must be set", 503)
 
     try:
         data = request.get_json()
@@ -467,7 +502,6 @@ def update_points(user_id):
         if not round_id:
             return create_error_response("round_id is required", 400)
         
-        # Get current points
         profile = supabase.table('user_profile').select('current_points').eq('user_id', user_id).single().execute()
         err = _resp_error(profile)
         if err:
@@ -476,7 +510,6 @@ def update_points(user_id):
 
         new_balance = max(0, current_points + points_change)
         
-        # Update user points
         upd = supabase.table('user_profile').update({
             'current_points': new_balance,
             'updated_at': datetime.now().isoformat()
@@ -485,7 +518,6 @@ def update_points(user_id):
         if err:
             return create_error_response(f"Database error: {err}", 500)
         
-        # Get updated profile
         updated_profile = supabase.table('user_profile').select('*').eq('user_id', user_id).single().execute()
         err = _resp_error(updated_profile)
         if err:

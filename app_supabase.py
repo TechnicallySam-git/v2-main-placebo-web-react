@@ -4,6 +4,7 @@ from flask_jwt_extended import JWTManager, create_access_token, jwt_required, ge
 from werkzeug.security import generate_password_hash, check_password_hash  # noqa: F401 (kept for compatibility if referenced elsewhere)
 import os
 from datetime import datetime, timedelta
+from uuid import UUID
 from dotenv import load_dotenv
 import string
 import random
@@ -153,7 +154,8 @@ def register():
                  "password": password,
                  "options": {
                      "data": {
-                         "username": username
+                         "username": username,
+                         "display_name": username
                      }
                  }
              })
@@ -183,6 +185,12 @@ def register():
         try:
             profile = supabase.table('user_profile').select('*').eq('user_id', user_id).single().execute()
             user_data = profile.data
+            
+            # Fix username if trigger saved it incorrectly (saves email before @ instead of actual username)
+            if user_data.get('username') != username:
+                print(f"Fixing username in profile: {user_data.get('username')} -> {username}")
+                supabase.table('user_profile').update({'username': username}).eq('user_id', user_id).execute()
+                user_data['username'] = username
         except Exception as e:
             print(f"Profile fetch error: {e}")
             # Fallback: create profile if trigger didn't work
@@ -190,7 +198,6 @@ def register():
                 profile_insert = supabase.table('user_profile').insert({
                     'user_id': user_id,
                     'username': username,
-                    'email': email,
                     'current_points': 1000,
                     'user_status': 'active'
                 }).execute()
@@ -244,16 +251,56 @@ def login():
         # Determine if identifier is email or username
         email = identifier
         if '@' not in identifier:
-            # Look up email by username
+            # Look up username in user_profile, fallback to display_name in auth
             try:
-                profile = supabase.table('user_profile').select('email, user_id').eq('username', identifier).single().execute()
-                if not profile.data:
-                    return create_error_response("Invalid credentials", 401)
+                print(f"Looking up username: {identifier}")
+                profile = supabase.table('user_profile').select('user_id').eq('username', identifier).execute()
+                print(f"Profile lookup result: {profile.data}")
                 
-                email = profile.data.get('email')
-                if not email:
-                    return create_error_response("Invalid credentials", 401)
-            except Exception:
+                if not profile.data or len(profile.data) == 0:
+                    print("No profile data found for username, trying to find by display_name in auth")
+                    # Fallback: user_profile might have wrong username, search by display_name in auth
+                    try:
+                        users_response = supabase.auth.admin.list_users()
+                        users = users_response if isinstance(users_response, list) else getattr(users_response, 'users', [])
+                        
+                        for user in users:
+                            display_name = getattr(user, 'user_metadata', {}).get('display_name', '') if hasattr(user, 'user_metadata') else user.get('user_metadata', {}).get('display_name', '')
+                            if display_name == identifier:
+                                email = getattr(user, 'email', None) if hasattr(user, 'email') else user.get('email')
+                                user_id_from_auth = getattr(user, 'id', None) if hasattr(user, 'id') else user.get('id')
+                                print(f"Found user by display_name: {email}")
+                                
+                                # Update user_profile with correct username
+                                try:
+                                    supabase.table('user_profile').update({'username': identifier}).eq('user_id', user_id_from_auth).execute()
+                                    print(f"Updated user_profile with correct username")
+                                except:
+                                    pass
+                                break
+                        else:
+                            return create_error_response("Invalid credentials", 401)
+                    except Exception as e2:
+                        print(f"Display name lookup error: {e2}")
+                        return create_error_response("Invalid credentials", 401)
+                else:
+                    user_id_from_profile = profile.data[0].get('user_id')
+                    if not user_id_from_profile:
+                        print("User ID not found in profile")
+                        return create_error_response("Invalid credentials", 401)
+                    
+                    # Get email from auth.users table using admin API
+                    print(f"Looking up auth user for user_id: {user_id_from_profile}")
+                    auth_user = supabase.auth.admin.get_user_by_id(user_id_from_profile)
+                    email = auth_user.user.email
+                    
+                    if not email:
+                        print("Email not found in auth user")
+                        return create_error_response("Invalid credentials", 401)
+                        
+                    print(f"Found email for username: {email}")
+            except Exception as e:
+                print(f"Username lookup error: {e}")
                 return create_error_response("Invalid credentials", 401)
         
         # Sign in with Supabase Auth (checks auth.users table)
@@ -720,14 +767,47 @@ def create_round():
         # Get current points
         profile = supabase.table('user_profile').select('current_points').eq('user_id', user_id).single().execute()
         current_points = profile.data['current_points']
-        
+
+        # Resolve game_id: if client sent a non-UUID (e.g. 'blackjack' or game name), look up the game row
+        resolved_game_id = game_id
+        min_bet_points = None
+        if game_id:
+            try:
+                UUID(str(game_id))
+            except Exception:
+                try:
+                    # Try to find game by exact name first
+                    game_row = supabase.table('game').select('*').eq('game_name', game_id).execute()
+                    if not game_row.data:
+                        # Fallback to searching by game_type
+                        game_row = supabase.table('game').select('*').eq('game_type', game_id).execute()
+                    if not game_row.data:
+                        return create_error_response("Invalid game_id", 400)
+                    resolved_game_id = game_row.data[0]['game_id']
+                    min_bet_points = game_row.data[0].get('min_bet_points', None)
+                except Exception as e:
+                    print(f"Game lookup error: {e}")
+                    return create_error_response("Invalid game_id", 400)
+
+        # Ensure points_used meets game minimums and DB constraints
+        try:
+            points_used = int(points_used or 0)
+        except Exception:
+            points_used = 0
+
+        if (not points_used or points_used <= 0) and min_bet_points:
+            points_used = int(min_bet_points)
+
+        if points_used <= 0:
+            return create_error_response("points_used must be a positive integer", 400)
+
         # Calculate new balance
         new_balance = max(0, current_points + points_change)
-        
+
         # Create round
         round_insert = supabase.table('round').insert({
             'user_id': user_id,
-            'game_id': game_id,
+            'game_id': resolved_game_id,
             'points_used': points_used,
             'round_result': round_result,
             'points_change': points_change,

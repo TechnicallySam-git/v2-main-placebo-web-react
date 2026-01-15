@@ -102,6 +102,11 @@ export interface UserStats {
   lastLogin: string;
 }
 
+function looksLikeUUID(str: string | null | undefined): boolean {
+  if (!str) return false;
+  return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(str);
+}
+
 export const casinoAPI = {
   async register(username: string, email: string, password: string): Promise<LoginResponse> {
     try {
@@ -238,19 +243,41 @@ export const casinoAPI = {
         throw new Error('Not logged in');
       }
 
+      // Resolve non-UUID game identifiers by fetching /games and matching by name/type.
+      let resolvedGameId: string | null = gameId;
+      if (gameId && !looksLikeUUID(gameId)) {
+        try {
+          const resp = await fetch(`${API_BASE_URL}/games`);
+          if (resp.ok) {
+            const gameResp = await resp.json();
+            const found = (gameResp.games || []).find((g: any) =>
+              (g.game_name || '').toLowerCase() === gameId.toLowerCase() ||
+              (g.game_type || '').toLowerCase() === gameId.toLowerCase()
+            );
+            resolvedGameId = found ? found.game_id : null;
+          } else {
+            // if /games fails, avoid sending the raw string to the server
+            resolvedGameId = null;
+          }
+        } catch (err) {
+          resolvedGameId = null;
+        }
+      }
+
       const response = await fetch(`${API_BASE_URL}/game/round`, {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           user_id: userId,
-          game_id: gameId,
+          // send resolvedGameId (UUID) or null to avoid invalid uuid syntax errors
+          game_id: resolvedGameId,
           points_used: pointsUsed,
           result: result,
           points_change: pointsChange,
           round_data: roundData || {}
         }),
       });
-      
+
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || 'Failed to create game round');

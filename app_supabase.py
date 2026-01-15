@@ -26,12 +26,34 @@ CORS(app, origins=['*'], supports_credentials=True)
 
 # Supabase Configuration
 SUPABASE_URL = os.getenv('SUPABASE_URL')
-SUPABASE_KEY = os.getenv('SUPABASE_KEY')  # Use service role key for server-side
+# Prefer service role key for server-side operations; fall back to regular key if present.
+SUPABASE_SERVICE_ROLE_KEY = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
+SUPABASE_KEY = SUPABASE_SERVICE_ROLE_KEY or os.getenv('SUPABASE_KEY')  # choose service key first
+IS_SERVICE_ROLE = bool(SUPABASE_SERVICE_ROLE_KEY)
 
 if not SUPABASE_URL or not SUPABASE_KEY:
-    print("WARNING: SUPABASE_URL and SUPABASE_KEY must be set in environment variables")
+    print("WARNING: SUPABASE_URL and SUPABASE_KEY (or SUPABASE_SERVICE_ROLE_KEY) must be set in environment variables")
 
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY else None
+# create supabase client (service key if available)
+try:
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY else None
+except Exception as e:
+    print(f"Failed to create Supabase client: {e}")
+    supabase = None
+
+# helper to surface supabase responses
+def _resp_error(resp):
+    """Return error message if supabase response indicates an error."""
+    try:
+        # supabase-py may return object with .error or dict with 'error'
+        err = getattr(resp, "error", None)
+        if err:
+            return str(err)
+        if isinstance(resp, dict) and resp.get("error"):
+            return str(resp.get("error"))
+    except Exception:
+        pass
+    return None
 
 # Helper: normalize Supabase auth responses (object or dict shapes)
 def _extract_user_id_from_auth_response(resp):
@@ -429,7 +451,11 @@ def update_points(user_id):
     current_user = get_jwt_identity()
     if current_user != user_id:
         return create_error_response("Unauthorized", 401)
-    
+
+    # Require service role key for writes
+    if not supabase or not IS_SERVICE_ROLE:
+        return create_error_response("Server misconfiguration: SUPABASE_SERVICE_ROLE_KEY missing or DB not configured", 503)
+
     try:
         data = request.get_json()
         if not data:
@@ -443,17 +469,27 @@ def update_points(user_id):
         
         # Get current points
         profile = supabase.table('user_profile').select('current_points').eq('user_id', user_id).single().execute()
+        err = _resp_error(profile)
+        if err:
+            return create_error_response(f"Database error: {err}", 500)
         current_points = profile.data['current_points']
+
         new_balance = max(0, current_points + points_change)
         
         # Update user points
-        supabase.table('user_profile').update({
+        upd = supabase.table('user_profile').update({
             'current_points': new_balance,
             'updated_at': datetime.now().isoformat()
         }).eq('user_id', user_id).execute()
+        err = _resp_error(upd)
+        if err:
+            return create_error_response(f"Database error: {err}", 500)
         
         # Get updated profile
         updated_profile = supabase.table('user_profile').select('*').eq('user_id', user_id).single().execute()
+        err = _resp_error(updated_profile)
+        if err:
+            return create_error_response(f"Database error: {err}", 500)
         
         return jsonify({
             "success": True,
@@ -614,6 +650,10 @@ def get_stats(user_id):
 @jwt_required()
 def generate_reward():
     """Generate reward code (admin endpoint)"""
+    # Require service role key for writes
+    if not supabase or not IS_SERVICE_ROLE:
+        return create_error_response("Server misconfiguration: SUPABASE_SERVICE_ROLE_KEY missing or DB not configured", 503)
+
     try:
         data = request.get_json()
         if not data:
@@ -636,6 +676,9 @@ def generate_reward():
             'is_active': True,
             'quantity_in_stock': 1
         }).execute()
+        err = _resp_error(result)
+        if err:
+            return create_error_response(f"Database error: {err}", 500)
         
         reward_id = result.data[0]['reward_id']
         
@@ -658,6 +701,10 @@ def redeem_reward():
     """Redeem reward code"""
     current_user = get_jwt_identity()
     
+    # Require service role key for writes
+    if not supabase or not IS_SERVICE_ROLE:
+        return create_error_response("Server misconfiguration: SUPABASE_SERVICE_ROLE_KEY missing or DB not configured", 503)
+
     try:
         data = request.get_json()
         if not data:
@@ -674,6 +721,9 @@ def redeem_reward():
         
         # Find reward by code (in reward_name or description)
         rewards = supabase.table('reward').select('*').ilike('reward_name', f'%{code}%').eq('is_active', True).execute()
+        err = _resp_error(rewards)
+        if err:
+            return create_error_response(f"Database error: {err}", 500)
         
         if not rewards.data:
             return create_error_response("Invalid reward code", 400)
@@ -682,6 +732,9 @@ def redeem_reward():
         
         # Check if already redeemed
         existing = supabase.table('reward_redemption').select('*').eq('user_id', user_id).eq('reward_id', reward['reward_id']).execute()
+        err = _resp_error(existing)
+        if err:
+            return create_error_response(f"Database error: {err}", 500)
         
         if existing.data:
             return create_error_response("You already used this code", 400)
@@ -692,6 +745,9 @@ def redeem_reward():
         
         # Get current points
         profile = supabase.table('user_profile').select('current_points').eq('user_id', user_id).single().execute()
+        err = _resp_error(profile)
+        if err:
+            return create_error_response(f"Database error: {err}", 500)
         current_points = profile.data['current_points']
         
         # Add points
@@ -706,11 +762,14 @@ def redeem_reward():
             'redemption_code': code,
             'redemption_status': 'issued'
         }).execute()
+        err = _resp_error(redemption)
+        if err:
+            return create_error_response(f"Database error: {err}", 500)
         
         redemption_id = redemption.data[0]['redemption_id']
         
         # Create point transaction
-        supabase.table('point_transaction').insert({
+        pt = supabase.table('point_transaction').insert({
             'user_id': user_id,
             'transaction_type': 'REDEEM_REWARD',
             'transaction_change': points_to_add,
@@ -718,17 +777,26 @@ def redeem_reward():
             'redemption_id': redemption_id,
             'description': f'Redeemed code {code}'
         }).execute()
+        err = _resp_error(pt)
+        if err:
+            return create_error_response(f"Database error: {err}", 500)
         
         # Update user points
-        supabase.table('user_profile').update({
+        upd = supabase.table('user_profile').update({
             'current_points': new_balance,
             'updated_at': datetime.now().isoformat()
         }).eq('user_id', user_id).execute()
+        err = _resp_error(upd)
+        if err:
+            return create_error_response(f"Database error: {err}", 500)
         
         # Decrement stock
-        supabase.table('reward').update({
+        dec = supabase.table('reward').update({
             'quantity_in_stock': reward['quantity_in_stock'] - 1
         }).eq('reward_id', reward['reward_id']).execute()
+        err = _resp_error(dec)
+        if err:
+            return create_error_response(f"Database error: {err}", 500)
         
         return jsonify({
             "success": True,
@@ -749,6 +817,10 @@ def create_round():
     """Create a new game round"""
     current_user = get_jwt_identity()
     
+    # Require service role key for writes
+    if not supabase or not IS_SERVICE_ROLE:
+        return create_error_response("Server misconfiguration: SUPABASE_SERVICE_ROLE_KEY missing or DB not configured", 503)
+    
     try:
         data = request.get_json()
         if not data:
@@ -766,6 +838,9 @@ def create_round():
         
         # Get current points
         profile = supabase.table('user_profile').select('current_points').eq('user_id', user_id).single().execute()
+        err = _resp_error(profile)
+        if err:
+            return create_error_response(f"Database error: {err}", 500)
         current_points = profile.data['current_points']
 
         # Resolve game_id: if client sent a non-UUID (e.g. 'blackjack' or game name), look up the game row
@@ -778,9 +853,15 @@ def create_round():
                 try:
                     # Try to find game by exact name first
                     game_row = supabase.table('game').select('*').eq('game_name', game_id).execute()
+                    err = _resp_error(game_row)
+                    if err:
+                        return create_error_response(f"Database error: {err}", 500)
                     if not game_row.data:
                         # Fallback to searching by game_type
                         game_row = supabase.table('game').select('*').eq('game_type', game_id).execute()
+                        err = _resp_error(game_row)
+                        if err:
+                            return create_error_response(f"Database error: {err}", 500)
                     if not game_row.data:
                         return create_error_response("Invalid game_id", 400)
                     resolved_game_id = game_row.data[0]['game_id']
@@ -814,6 +895,9 @@ def create_round():
             'balance_after': new_balance,
             'round_data': round_data
         }).execute()
+        err = _resp_error(round_insert)
+        if err:
+            return create_error_response(f"Database error: {err}", 500)
         
         round_id = round_insert.data[0]['round_id']
         
@@ -825,7 +909,7 @@ def create_round():
             'blackjack': 'BLACKJACK'
         }.get(round_result, 'GAME_LOSS')
         
-        supabase.table('point_transaction').insert({
+        pt = supabase.table('point_transaction').insert({
             'user_id': user_id,
             'transaction_type': transaction_type,
             'transaction_change': points_change,
@@ -833,12 +917,18 @@ def create_round():
             'round_id': round_id,
             'description': f'{round_result.capitalize()} - {points_used} points bet'
         }).execute()
+        err = _resp_error(pt)
+        if err:
+            return create_error_response(f"Database error: {err}", 500)
         
         # Update user points
-        supabase.table('user_profile').update({
+        upd = supabase.table('user_profile').update({
             'current_points': new_balance,
             'updated_at': datetime.now().isoformat()
         }).eq('user_id', user_id).execute()
+        err = _resp_error(upd)
+        if err:
+            return create_error_response(f"Database error: {err}", 500)
         
         return jsonify({
             "success": True,
@@ -856,7 +946,13 @@ def create_round():
 def get_games():
     """Get available games"""
     try:
+        if not supabase:
+            return create_error_response("Database not configured", 503)
+
         result = supabase.table('game').select('*').eq('game_status', 'waiting').execute()
+        err = _resp_error(result)
+        if err:
+            return create_error_response(f"Database error: {err}", 500)
         games = result.data
         
         return jsonify({

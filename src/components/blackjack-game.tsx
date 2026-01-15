@@ -26,6 +26,7 @@ export function BlackjackGame({ onBack }: BlackjackGameProps) {
   const [gameState, setGameState] = useState<'betting' | 'playing' | 'dealer' | 'ended'>('betting');
   const [result, setResult] = useState<string>('');
   const [showDealerCard, setShowDealerCard] = useState(false);
+  const [isPlacingBet, setIsPlacingBet] = useState(false);
 
   const suits: Suit[] = ['♠', '♥', '♦', '♣'];
   const ranks: Rank[] = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
@@ -81,11 +82,22 @@ export function BlackjackGame({ onBack }: BlackjackGameProps) {
     return total;
   };
 
-  const dealInitialCards = () => {
+  const dealInitialCards = async () => {
     if (bet > user.points) {
       alert('Insufficient points!');
       return;
     }
+
+    setIsPlacingBet(true);
+    try {
+      await updatePoints(-bet);
+    } catch (err: any) {
+      console.error('Failed to place bet:', err);
+      alert(typeof err === 'string' ? err : (err?.message || 'Failed to place bet. Try again later.'));
+      setIsPlacingBet(false);
+      return;
+    }
+    setIsPlacingBet(false);
 
     const newDeck = createDeck();
     const player = [newDeck[0], newDeck[2]];
@@ -97,7 +109,6 @@ export function BlackjackGame({ onBack }: BlackjackGameProps) {
     setGameState('playing');
     setResult('');
     setShowDealerCard(false);
-    updatePoints(-bet);
 
     // Check for natural blackjack
     const playerValue = calculateHandValue(player);
@@ -105,9 +116,9 @@ export function BlackjackGame({ onBack }: BlackjackGameProps) {
       setShowDealerCard(true);
       const dealerValue = calculateHandValue(dealer);
       if (dealerValue === 21) {
-        endGame('push', 0);
+        await endGame('push', 0);
       } else {
-        endGame('win', bet * 2.5);
+        await endGame('win', Math.floor(bet * 2.5));
       }
     }
   };
@@ -135,7 +146,7 @@ export function BlackjackGame({ onBack }: BlackjackGameProps) {
     dealerPlay();
   };
 
-  const dealerPlay = () => {
+  const dealerPlay = async () => {
     let currentDealerHand = [...dealerHand];
     let currentDeck = [...deck];
 
@@ -162,12 +173,17 @@ export function BlackjackGame({ onBack }: BlackjackGameProps) {
     }
   };
 
-  const endGame = (outcome: 'win' | 'loss' | 'push', payout: number) => {
+  const endGame = async (outcome: 'win' | 'loss' | 'push', payout: number) => {
     setGameState('ended');
     
     if (outcome === 'win') {
       setResult(`You Win! +${payout} points`);
-      updatePoints(payout);
+      try {
+        await updatePoints(payout);
+      } catch (err: any) {
+        console.error('Failed to credit payout:', err);
+        alert('Round finished but server failed to credit points. Contact support.');
+      }
       addGameHistory({
         gameName: 'Blackjack',
         result: 'win',
@@ -182,7 +198,12 @@ export function BlackjackGame({ onBack }: BlackjackGameProps) {
       });
     } else {
       setResult('Push! Bet Returned');
-      updatePoints(bet);
+      try {
+        await updatePoints(bet);
+      } catch (err: any) {
+        console.error('Failed to return bet:', err);
+        alert('Round finished but server failed to return bet. Contact support.');
+      }
       addGameHistory({
         gameName: 'Blackjack',
         result: 'push',
@@ -323,10 +344,10 @@ export function BlackjackGame({ onBack }: BlackjackGameProps) {
               
               <Button
                 onClick={dealInitialCards}
-                disabled={bet > user.points}
+                disabled={bet > user.points || isPlacingBet}
                 className="w-full h-14 bg-gradient-to-r from-[#6b46ff] to-[#ff2b9e] hover:from-[#5a38e6] hover:to-[#e6278f] text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
               >
-                Deal Cards
+                {isPlacingBet ? 'Placing bet...' : 'Deal Cards'}
               </Button>
             </div>
           )}

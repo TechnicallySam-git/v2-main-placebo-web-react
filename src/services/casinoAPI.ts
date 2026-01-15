@@ -107,6 +107,17 @@ function looksLikeUUID(str: string | null | undefined): boolean {
   return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(str);
 }
 
+function _parseApiError(resp: Response, body?: any): string {
+  // Prefer structured error message from body, fallback to status text
+  const msg = (body && (body.error || body.message)) || resp.statusText || 'Unknown API error';
+  // Map permission errors to a clearer message
+  const lower = String(msg).toLowerCase();
+  if (lower.includes('permission denied') || lower.includes('42501') || lower.includes('service role')) {
+    return 'Server misconfiguration: backend missing SUPABASE_SERVICE_ROLE_KEY or lacks write permissions';
+  }
+  return msg;
+}
+
 export const casinoAPI = {
   async register(username: string, email: string, password: string): Promise<LoginResponse> {
     try {
@@ -225,8 +236,8 @@ export const casinoAPI = {
       });
       
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to update points');
+        const errorBody = await response.json().catch(() => null);
+        throw new Error(_parseApiError(response, errorBody) || 'Failed to update points');
       }
       const data = await response.json();
       return data;
@@ -257,9 +268,12 @@ export const casinoAPI = {
             resolvedGameId = found ? found.game_id : null;
           } else {
             // if /games fails, avoid sending the raw string to the server
-            resolvedGameId = null;
+            const errBody = await resp.json().catch(() => null);
+            throw new Error(_parseApiError(resp, errBody));
           }
         } catch (err) {
+          // don't block the caller with internal lookup failures — send null and let backend validate
+          console.warn('Game lookup failed, sending null game_id to backend:', err);
           resolvedGameId = null;
         }
       }
@@ -279,8 +293,8 @@ export const casinoAPI = {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to create game round');
+        const errorBody = await response.json().catch(() => null);
+        throw new Error(_parseApiError(response, errorBody) || 'Failed to create game round');
       }
       const data = await response.json();
       return data;
@@ -301,11 +315,11 @@ export const casinoAPI = {
         headers: getAuthHeaders(),
       });
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to fetch history');
+        const errorBody = await response.json().catch(() => null);
+        throw new Error(_parseApiError(response, errorBody) || 'Failed to fetch history');
       }
       const data = await response.json();
-      return data.gameHistory;
+      return data.gameHistory || [];
     } catch (error) {
       console.error('Get history error:', error);
       throw error;
@@ -316,11 +330,11 @@ export const casinoAPI = {
     try {
       const response = await fetch(`${API_BASE_URL}/users?limit=${limit}`);
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to fetch users');
+        const errorBody = await response.json().catch(() => null);
+        throw new Error(_parseApiError(response, errorBody) || 'Failed to fetch users');
       }
       const data = await response.json();
-      return data.users;
+      return data.users || [];
     } catch (error) {
       console.error('Get users error:', error);
       throw error;
@@ -336,8 +350,8 @@ export const casinoAPI = {
 
       const response = await fetch(`${API_BASE_URL}/user/${userId}/stats`);
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to fetch stats');
+        const errorBody = await response.json().catch(() => null);
+        throw new Error(_parseApiError(response, errorBody) || 'Failed to fetch stats');
       }
       const data = await response.json();
       return data.stats;
@@ -356,8 +370,8 @@ export const casinoAPI = {
       });
       
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to generate reward code');
+        const errorBody = await response.json().catch(() => null);
+        throw new Error(_parseApiError(response, errorBody) || 'Failed to generate reward code');
       }
       const data = await response.json();
       return { code: data.code, points: data.points };
@@ -381,8 +395,8 @@ export const casinoAPI = {
       });
       
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to redeem reward code');
+        const errorBody = await response.json().catch(() => null);
+        throw new Error(_parseApiError(response, errorBody) || 'Failed to redeem reward code');
       }
       const data = await response.json();
       return { pointsAdded: data.pointsAdded, newBalance: data.newBalance, message: data.message };
@@ -396,11 +410,11 @@ export const casinoAPI = {
     try {
       const response = await fetch(`${API_BASE_URL}/games`);
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to fetch games');
+        const errorBody = await response.json().catch(() => null);
+        throw new Error(_parseApiError(response, errorBody) || 'Failed to fetch games');
       }
       const data = await response.json();
-      return data.games;
+      return data.games || [];
     } catch (error) {
       console.error('Get games error:', error);
       throw error;

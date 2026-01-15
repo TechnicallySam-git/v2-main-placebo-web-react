@@ -103,17 +103,44 @@ export interface UserStats {
 }
 
 export const casinoAPI = {
-  async login(username: string, password: string, email?: string): Promise<LoginResponse> {
+  async register(username: string, email: string, password: string): Promise<LoginResponse> {
     try {
-      const body: any = { username, password };
-      if (email) {
-        body.email = email;
+      const response = await fetch(`${API_BASE_URL}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, email, password }),
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Registration failed');
+      }
+      const data = await response.json();
+      
+      // Store JWT token, user_id, and username
+      if (data.access_token) {
+        setToken(data.access_token);
+      }
+      if (data.user?.id) {
+        setUserId(data.user.id);
+      }
+      if (data.user?.name) {
+        setUsername(data.user.name);
       }
       
+      return data;
+    } catch (error) {
+      console.error('Registration error:', error);
+      throw error;
+    }
+  },
+
+  async login(username: string, password: string): Promise<LoginResponse> {
+    try {
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ username, password }),
       });
       
       if (!response.ok) {

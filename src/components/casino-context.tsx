@@ -19,17 +19,18 @@ interface GameHistory {
 
 interface CasinoContextType {
   user: User;
-  login: (name: string, password?: string, email?: string) => void;
-  logout: () => void;
-  updatePoints: (points: number) => void;
-  addGameHistory: (game: Omit<GameHistory, 'id' | 'timestamp'>) => void;
+  login: (name: string, password?: string) => Promise<void>;
+  register: (username: string, email: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
+  updatePoints: (points: number) => Promise<void>;
+  addGameHistory: (game: Omit<GameHistory, 'id' | 'timestamp'>) => Promise<void>;
   gameHistory: GameHistory[];
   markWelcomed: () => void;
 }
 
 const CasinoContext = createContext<CasinoContextType | undefined>(undefined);
 
-export function CasinoProvider({ children }: { children: ReactNode }) {
+export function CasinoProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User>({
     name: '',
     points: 0,
@@ -75,10 +76,10 @@ export function CasinoProvider({ children }: { children: ReactNode }) {
     }
   }, [gameHistory, currentUserName]);
 
-  const login = async (name: string, password: string = 'default', email?: string) => {
+  const login = async (name: string, password: string = 'default') => {
     try {
       // Try to use backend with JWT
-      const response = await casinoAPI.login(name, password, email);
+      const response = await casinoAPI.login(name, password);
       if (response && response.success) {
         setUseBackend(true);
         const userData = response.user;
@@ -100,7 +101,7 @@ export function CasinoProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.log('Backend unavailable, using localStorage:', error);
-      throw error; // Re-throw so the UI knows it failed
+      throw error;
     }
 
     // Fallback to localStorage
@@ -137,6 +138,23 @@ export function CasinoProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const register = async (username: string, email: string, password: string) => {
+    try {
+      const response = await casinoAPI.register(username, email, password);
+      setUser({
+        id: response.user.id,
+        name: response.user.name,
+        points: response.user.points,
+        isLoggedIn: true,
+        isFirstLogin: response.isFirstLogin,
+      });
+      setCurrentUserName(username);
+    } catch (error) {
+      console.error('Registration failed:', error);
+      throw error;
+    }
+  };
+
   const logout = async () => {
     if (useBackend) {
       try {
@@ -165,10 +183,10 @@ export function CasinoProvider({ children }: { children: ReactNode }) {
       points: newPoints,
     }));
 
-    // Try to sync with backend
-    if (useBackend && currentUserName) {
+    // Sync with backend
+    if (useBackend && user.id) {
       try {
-        await casinoAPI.updatePoints(currentUserName, newPoints);
+        await casinoAPI.updatePoints(points, 'manual-update');
       } catch (error) {
         console.log('Failed to sync points with backend');
       }
@@ -183,14 +201,15 @@ export function CasinoProvider({ children }: { children: ReactNode }) {
     };
     setGameHistory(prev => [newHistory, ...prev].slice(0, 20));
 
-    // Try to sync with backend
-    if (useBackend && currentUserName) {
+    // Sync with backend using createGameRound
+    if (useBackend && user.id) {
       try {
-        await casinoAPI.addGameHistory(currentUserName, {
-          gameName: game.gameName,
-          result: game.result,
-          pointsChange: game.pointsChange,
-        });
+        await casinoAPI.createGameRound(
+          game.gameName.toLowerCase(),
+          Math.abs(game.pointsChange),
+          game.result,
+          game.pointsChange
+        );
       } catch (error) {
         console.log('Failed to sync game history with backend');
       }
@@ -205,17 +224,7 @@ export function CasinoProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <CasinoContext.Provider
-      value={{
-        user,
-        login,
-        logout,
-        updatePoints,
-        addGameHistory,
-        gameHistory,
-        markWelcomed,
-      }}
-    >
+    <CasinoContext.Provider value={{ user, login, register, logout, updatePoints, addGameHistory, gameHistory, markWelcomed }}>
       {children}
     </CasinoContext.Provider>
   );

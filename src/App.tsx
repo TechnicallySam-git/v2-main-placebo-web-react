@@ -16,7 +16,7 @@ import { Sparkles, Home, Gamepad2, Gift, Shield, HelpCircle, LogOut, User, Menu,
 type Page = 'landing' | 'dashboard' | 'games' | 'game-blackjack' | 'rewards' | 'responsible' | 'faq';
 
 function AppContent() {
-  const { user, login, logout } = useCasino();
+  const { user, login, logout, register } = useCasino();
   const [currentPage, setCurrentPage] = useState<Page>('landing');
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [showRegisterDialog, setShowRegisterDialog] = useState(false);
@@ -46,7 +46,7 @@ function AppContent() {
     if (username.trim() && password.trim() && email.trim()) {
       try {
         setRegisterError('');
-        await login(username.trim(), password, email.trim());
+        await register(username.trim(), email.trim(), password);
         setShowRegisterDialog(false);
         setCurrentPage('dashboard');
         setUsername('');
@@ -293,7 +293,7 @@ function AppContent() {
       <main>{renderPage()}</main>
 
       {/* Login Dialog */}
-      <Dialog open={showLoginDialog} onOpenChange={(open) => {
+      <Dialog open={showLoginDialog} onOpenChange={(open: boolean) => {
         setShowLoginDialog(open);
         if (!open) {
           setLoginError('');
@@ -360,7 +360,7 @@ function AppContent() {
       </Dialog>
 
       {/* Register Dialog */}
-      <Dialog open={showRegisterDialog} onOpenChange={(open) => {
+      <Dialog open={showRegisterDialog} onOpenChange={(open: boolean) => {
         setShowRegisterDialog(open);
         if (!open) {
           setRegisterError('');

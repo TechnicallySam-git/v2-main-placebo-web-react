@@ -10,6 +10,7 @@ from uuid import UUID
 from dotenv import load_dotenv
 import string
 import random
+import traceback
 from supabase import create_client, Client
 
 # Load environment variables
@@ -207,15 +208,34 @@ def register():
         # Create new user
         try:
             auth_response = supabase.auth.sign_up({
-                 "email": email,
-                 "password": password,
-                 "options": {
-                     "data": {
-                         "username": username,
-                         "display_name": username
-                     }
-                 }
-             })
+                "email": email,
+                "password": password,
+                "options": {
+                    "data": {
+                        "username": username,
+                        "display_name": username
+                    }
+                }
+            })
+            # Log raw auth response for debugging (supports dict or object shapes)
+            try:
+                print("Supabase sign_up response repr:", repr(auth_response))
+                if isinstance(auth_response, dict):
+                    print("Supabase sign_up response keys:", list(auth_response.keys()))
+                else:
+                    # print attributes that may be informative
+                    attrs = [a for a in dir(auth_response) if not a.startswith("__")]
+                    print("Supabase sign_up response attrs:", attrs)
+                    # try common attributes
+                    try:
+                        user_attr = getattr(auth_response, 'user', None)
+                        error_attr = getattr(auth_response, 'error', None)
+                        print("auth_response.user:", repr(user_attr))
+                        print("auth_response.error:", repr(error_attr))
+                    except Exception:
+                        print("Could not introspect auth_response details:\n", traceback.format_exc())
+            except Exception:
+                print("Failed to log auth_response:\n", traceback.format_exc())
             # normalize response (supports supabase-py dict/object shapes)
             user_id = _extract_user_id_from_auth_response(auth_response)
             if not user_id:
@@ -235,7 +255,9 @@ def register():
             elif "password" in error_msg:
                 return create_error_response("Password does not meet requirements", 400)
             else:
-                print(f"Registration error: {e}")
+                print("Registration error:", repr(e))
+                # Print full traceback to Lambda/console logs for debugging
+                print(traceback.format_exc())
                 return create_error_response("Registration failed", 500)
         
         # Get user profile (created by DB trigger)
@@ -243,13 +265,17 @@ def register():
             profile = supabase.table('user_profile').select('*').eq('user_id', user_id).single().execute()
             user_data = profile.data
             
-            # Fix username if trigger saved it incorrectly (saves email before @ instead of actual username)
+            # Fix username if trigger saved it incorrectly
             if user_data.get('username') != username:
                 print(f"Fixing username in profile: {user_data.get('username')} -> {username}")
                 supabase.table('user_profile').update({'username': username}).eq('user_id', user_id).execute()
                 user_data['username'] = username
+                
         except Exception as e:
             print(f"Profile fetch error: {e}")
+            print(f"Profile fetch error type: {type(e).__name__}")
+            print(f"Profile fetch error details: {e.__dict__ if hasattr(e, '__dict__') else 'N/A'}")
+            
             # Fallback: create profile if trigger didn't work
             try:
                 profile_insert = supabase.table('user_profile').insert({
@@ -258,10 +284,32 @@ def register():
                     'current_points': 1000,
                     'user_status': 'active'
                 }).execute()
+                
+                # Check for errors
+                err = _resp_error(profile_insert)
+                if err:
+                    print(f"Profile insert returned error: {err}")
+                    return create_error_response(f"Profile creation failed: {err}", 500)
+                
+                if not profile_insert.data:
+                    print("Profile insert returned no data")
+                    return create_error_response("Profile creation returned no data", 500)
+                    
                 user_data = profile_insert.data[0]
+                
             except Exception as e2:
                 print(f"Profile creation error: {e2}")
-                return create_error_response("Registration completed but profile creation failed", 500)
+                print(f"Profile creation error type: {type(e2).__name__}")
+                print(f"Profile creation error dict: {e2.__dict__ if hasattr(e2, '__dict__') else 'N/A'}")
+                
+                # Try to extract more details
+                error_msg = str(e2)
+                if hasattr(e2, 'message'):
+                    error_msg = e2.message
+                if hasattr(e2, 'code'):
+                    error_msg = f"{error_msg} (code: {e2.code})"
+                    
+                return create_error_response(f"Registration completed but profile creation failed: {error_msg}", 500)
         
         # Create JWT token
         access_token = create_access_token(identity=user_id)
@@ -285,7 +333,6 @@ def register():
     except Exception as e:
         print(f"Unexpected registration error: {e}")
         return create_error_response("Registration failed", 500)
-
 
 # Login endpoint
 @app.route('/api/auth/login', methods=['POST'])

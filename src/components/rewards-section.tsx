@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { useCasino } from './casino-context';
-import { Gift, Star, Zap, Trophy } from 'lucide-react';
+import { Gift, Star, Zap, Trophy, ExternalLink } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
 import { AmbientStarWaveBackground } from './ambient-star-wave-background';
 
@@ -13,56 +13,70 @@ interface Reward {
   cost: number;
   icon: 'gift' | 'star' | 'zap' | 'trophy';
   color: string;
+  company: string;
+  website: string;
 }
 
 const rewards: Reward[] = [
   {
-    id: 'bonus-100',
-    name: '100 Bonus Points',
-    description: 'Instant 100 points added to your balance',
-    cost: 500,
+    id: 'mcdonalds-discount',
+    name: "McDonald's 20% Discount",
+    description: '20% discount on any meal',
+    cost: 2500,
     icon: 'gift',
-    color: '#6b46ff',
+    color: '#da291c',
+    company: "McDonald's",
+    website: 'https://www.mcdonalds.com',
   },
   {
-    id: 'bonus-250',
-    name: '250 Bonus Points',
-    description: 'Instant 250 points added to your balance',
-    cost: 1000,
+    id: 'lidl-discount',
+    name: 'Lidl €5 Off',
+    description: '€5 off on purchases over €30',
+    cost: 3000,
     icon: 'star',
-    color: '#ff2b9e',
+    color: '#0066cc',
+    company: 'Lidl',
+    website: 'https://www.lidl.com',
   },
   {
-    id: 'bonus-500',
-    name: '500 Bonus Points',
-    description: 'Instant 500 points added to your balance',
-    cost: 1800,
+    id: 'hm-discount',
+    name: 'H&M 15% Off',
+    description: '15% off any clothing item',
+    cost: 2800,
     icon: 'zap',
-    color: '#00d9ff',
+    color: '#ed2939',
+    company: 'H&M',
+    website: 'https://www.hm.com',
   },
   {
-    id: 'bonus-1000',
-    name: '1000 Bonus Points',
-    description: 'Instant 1000 points added to your balance',
-    cost: 3200,
+    id: 'starbucks-bogo',
+    name: 'Starbucks Buy One Get One',
+    description: 'Buy one, get one free on any beverage',
+    cost: 3500,
     icon: 'trophy',
-    color: '#00ff88',
+    color: '#00704a',
+    company: 'Starbucks',
+    website: 'https://www.starbucks.com',
   },
   {
-    id: 'double-next',
-    name: 'Double Next Win',
-    description: 'Your next win will be doubled (one-time use)',
-    cost: 800,
-    icon: 'zap',
-    color: '#ff6b35',
-  },
-  {
-    id: 'free-games',
-    name: '5 Free Games',
-    description: 'Play 5 games without risking your points',
-    cost: 600,
+    id: 'decathlon-discount',
+    name: 'Decathlon 10% Off',
+    description: '10% off sports equipment',
+    cost: 3200,
     icon: 'star',
-    color: '#6b46ff',
+    color: '#003da5',
+    company: 'Decathlon',
+    website: 'https://www.decathlon.com',
+  },
+  {
+    id: 'dominos-discount',
+    name: "Domino's 25% Off",
+    description: '25% off any large pizza',
+    cost: 4000,
+    icon: 'zap',
+    color: '#0052cc',
+    company: "Domino's Pizza",
+    website: 'https://www.dominos.com',
   },
 ];
 
@@ -88,19 +102,10 @@ export function RewardsSection() {
     // Deduct cost
     updatePoints(-selectedReward.cost);
 
-    // Give reward
-    if (selectedReward.id === 'bonus-100') {
-      updatePoints(100);
-    } else if (selectedReward.id === 'bonus-250') {
-      updatePoints(250);
-    } else if (selectedReward.id === 'bonus-500') {
-      updatePoints(500);
-    } else if (selectedReward.id === 'bonus-1000') {
-      updatePoints(1000);
-    }
-
+    // Show success message with company website link
+    alert(`Successfully redeemed: ${selectedReward.name}!\n\nVisit ${selectedReward.company} to use your reward.`);
+    
     setShowDialog(false);
-    alert(`Successfully redeemed: ${selectedReward.name}!`);
   };
 
   const getIcon = (iconType: string) => {
@@ -167,7 +172,8 @@ export function RewardsSection() {
                 </div>
                 
                 <h3 className="text-white mb-2">{reward.name}</h3>
-                <p className="text-gray-400 text-sm mb-4">{reward.description}</p>
+                <p className="text-gray-400 text-sm mb-2">{reward.description}</p>
+                <p className="text-gray-500 text-xs mb-4">{reward.company}</p>
                 
                 <div className="flex items-center justify-between mb-4">
                   <div>
@@ -178,17 +184,26 @@ export function RewardsSection() {
                   </div>
                 </div>
                 
-                <Button
-                  onClick={() => handleRedeemClick(reward)}
-                  disabled={!canAfford}
-                  className={`w-full ${
-                    canAfford
-                      ? 'bg-gradient-to-r from-[#6b46ff] to-[#ff2b9e] hover:from-[#5a38e6] hover:to-[#e6278f]'
-                      : 'bg-gray-700 cursor-not-allowed'
-                  } text-white`}
-                >
-                  {canAfford ? 'Redeem' : 'Insufficient Points'}
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => handleRedeemClick(reward)}
+                    disabled={!canAfford}
+                    className={`flex-1 ${
+                      canAfford
+                        ? 'bg-gradient-to-r from-[#6b46ff] to-[#ff2b9e] hover:from-[#5a38e6] hover:to-[#e6278f]'
+                        : 'bg-gray-700 cursor-not-allowed'
+                    } text-white`}
+                  >
+                    {canAfford ? 'Redeem' : 'Insufficient Points'}
+                  </Button>
+                  <Button
+                    onClick={() => window.open(reward.website, '_blank')}
+                    variant="outline"
+                    className="border-[#6b46ff]/30 hover:border-[#6b46ff] text-white px-3"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                  </Button>
+                </div>
               </Card>
             );
           })}

@@ -83,9 +83,9 @@ export function BlackjackGame({ onBack }: BlackjackGameProps) {
             }
             
             window.createUnityInstance(canvas, {
-              dataUrl: '/blackjack/Build/the-last-group-project.data.gz',
-              frameworkUrl: '/blackjack/Build/the-last-group-project.framework.js.gz',
-              codeUrl: '/blackjack/Build/the-last-group-project.wasm.gz',
+              dataUrl: '/blackjack/Build/the-last-group-project.data',
+              frameworkUrl: '/blackjack/Build/the-last-group-project.framework.js',
+              codeUrl: '/blackjack/Build/the-last-group-project.wasm',
               streamingAssetsUrl: '/blackjack/StreamingAssets',
               companyName: 'Placebo Casino',
               productName: 'Blackjack 3D',

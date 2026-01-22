@@ -21,21 +21,3 @@ frontend:
           value: 'require-corp'
         - key: 'Cross-Origin-Opener-Policy'
           value: 'same-origin'
-    - pattern: '**/*.wasm.gz'
-      headers:
-        - key: 'Content-Type'
-          value: 'application/wasm'
-        - key: 'Content-Encoding'
-          value: 'gzip'
-    - pattern: '**/*.js.gz'
-      headers:
-        - key: 'Content-Type'
-          value: 'application/javascript'
-        - key: 'Content-Encoding'
-          value: 'gzip'
-    - pattern: '**/*.data.gz'
-      headers:
-        - key: 'Content-Type'
-          value: 'application/octet-stream'
-        - key: 'Content-Encoding'
-          value: 'gzip'

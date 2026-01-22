@@ -4,6 +4,7 @@ import { Card } from './ui/card';
 import { useCasino } from './casino-context';
 import { ArrowLeft, Coins, Loader2, Gamepad2 } from 'lucide-react';
 import { AmbientStarWaveBackground } from './ambient-star-wave-background';
+import { casinoAPI } from '../services/casinoAPI';
 
 // Unity type declarations
 declare global {
@@ -317,40 +318,45 @@ export function BlackjackGame({ onBack }: BlackjackGameProps) {
   const endGame = async (outcome: 'win' | 'loss' | 'push', payout: number) => {
     setGameState('ended');
     
+    // Calculate points change based on outcome
+    let pointsChange = 0;
     if (outcome === 'win') {
+      pointsChange = payout - bet; // Net win (payout includes bet return)
       setResult(`You Win! +${payout} points`);
-      try {
-        await updatePoints(payout);
-      } catch (err: any) {
-        console.error('Failed to credit payout:', err);
-        alert('Round finished but server failed to credit points. Contact support.');
-      }
-      addGameHistory({
-        gameName: 'Blackjack',
-        result: 'win',
-        pointsChange: payout - bet,
-      });
     } else if (outcome === 'loss') {
+      pointsChange = -bet; // Lost the bet
       setResult('Dealer Wins!');
-      addGameHistory({
-        gameName: 'Blackjack',
-        result: 'loss',
-        pointsChange: -bet,
-      });
     } else {
+      pointsChange = 0; // Push, bet returned
       setResult('Push! Bet Returned');
-      try {
-        await updatePoints(bet);
-      } catch (err: any) {
-        console.error('Failed to return bet:', err);
-        alert('Round finished but server failed to return bet. Contact support.');
-      }
-      addGameHistory({
-        gameName: 'Blackjack',
-        result: 'push',
-        pointsChange: 0,
-      });
     }
+
+    // Create game round (this also updates points on backend)
+    try {
+      await updatePoints(pointsChange);
+      const roundData = {
+        playerHand: playerHand.map(c => `${c.rank}${c.suit}`),
+        dealerHand: dealerHand.map(c => `${c.rank}${c.suit}`),
+        playerValue: calculateHandValue(playerHand),
+        dealerValue: calculateHandValue(dealerHand),
+        bet: bet,
+      };
+      
+      await casinoAPI.createGameRound('blackjack', bet, outcome, pointsChange, roundData);
+    } catch (err: any) {
+      console.error('Failed to record game round:', err);
+      // Alert user but don't block the game
+      if (outcome === 'win' || outcome === 'push') {
+        alert('Round finished but server failed to record. Your points may not be updated correctly.');
+      }
+    }
+
+    // Add to local game history
+    addGameHistory({
+      gameName: 'Blackjack',
+      result: outcome,
+      pointsChange: pointsChange,
+    });
   };
 
   const newRound = () => {

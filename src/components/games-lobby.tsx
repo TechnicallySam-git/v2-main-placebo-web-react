@@ -133,7 +133,7 @@ export function GamesLobby({ onSelectGame }: GamesLobbyProps) {
                 </div>
                 
                 <Button
-                  onClick={(e) => {
+                  onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                     e.stopPropagation();
                     handleGameClick(game);
                   }}

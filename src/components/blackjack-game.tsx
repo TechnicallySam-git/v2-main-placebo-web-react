@@ -59,14 +59,14 @@ export function BlackjackGame({ onBack }: BlackjackGameProps) {
         setUnityError(null);
 
         // Check if script already exists
-        const existingScript = document.querySelector('script[src="/blackjack/Build/the-last-group-project.loader.js"]');
+        const existingScript = document.querySelector('script[src="/blackjack/Build/Build.loader.js"]');
         if (existingScript) {
           existingScript.remove();
         }
 
         // Create script element for Unity loader
         script = document.createElement('script');
-        script.src = '/blackjack/Build/the-last-group-project.loader.js';
+        script.src = '/blackjack/Build/Build.loader.js';
         script.async = true;
 
         script.onload = () => {
@@ -83,9 +83,9 @@ export function BlackjackGame({ onBack }: BlackjackGameProps) {
             }
             
             window.createUnityInstance(canvas, {
-              dataUrl: '/blackjack/Build/the-last-group-project.data',
-              frameworkUrl: '/blackjack/Build/the-last-group-project.framework.js',
-              codeUrl: '/blackjack/Build/the-last-group-project.wasm',
+              dataUrl: '/blackjack/Build/Build.data',
+              frameworkUrl: '/blackjack/Build/Build.framework.js',
+              codeUrl: '/blackjack/Build/Build.wasm',
               streamingAssetsUrl: '/blackjack/StreamingAssets',
               companyName: 'Placebo Casino',
               productName: 'Blackjack 3D',
